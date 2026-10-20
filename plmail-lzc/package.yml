@@ -1,0 +1,22 @@
+package: cloud.lazycat.app.plmail
+version: 1.0.1
+name: plMail
+description: "Self-hosted mail client with calendar: IMAP, Gmail and Outlook in one inbox"
+author: Federico Liva
+license: AGPL-3.0
+homepage: https://github.com/f-liva/lzc-plmail
+
+locales:
+  en-US:
+    name: plMail
+    description: "Self-hosted mail client with calendar: IMAP, Gmail and Outlook in one inbox"
+  it-IT:
+    name: plMail
+    description: "Client mail self-hosted con calendario: IMAP, Gmail e Outlook in un'unica inbox"
+  zh-CN:
+    name: plMail
+    description: 自托管邮件客户端，带日历：IMAP、Gmail 和 Outlook 统一收件箱
+
+permissions:
+  required:
+    - net.internet

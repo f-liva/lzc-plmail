@@ -1,0 +1,104 @@
+# plMail su Lazycat: tre service (php, worker, database), nessuna immagine
+# nostra — l'immagine upstream fa tutto da se'.
+#
+# Scelte che divergono dal compose.yaml upstream, e il perche':
+#
+# - niente `secrets-init`. Lazycat non ha il service one-shot con
+#   `condition: service_completed_successfully`, e quel container esiste solo
+#   perche' Postgres legge la password alla CREAZIONE del container, prima che
+#   l'app possa generargliela. Qui la password Postgres e' fissata nel manifest
+#   e passata dentro DATABASE_URL: generate-secrets vede un DSN che porta gia'
+#   una password e non ne genera una seconda (vedi database_url_has_password in
+#   frankenphp/generate-secrets.sh). Gli altri tre segreti — APP_SECRET,
+#   APP_ENCRYPTION_KEY, MERCURE_JWT_SECRET — li genera l'entrypoint di php e
+#   worker, sotto flock, nella directory che i due condividono.
+#
+# - un solo bind per i dati (il pattern NAS della doc upstream):
+#   APP_STORAGE_DIR=var/data mette attachments, raw, uploads E i secret sotto
+#   /lzcapp/var/data. Una cosa sola da backuppare, e i due service che vedono
+#   dimostrabilmente la stessa chiave di cifratura.
+#   ⚠️ APP_STORAGE_DIR non si cambia su un'installazione che ha gia' posta:
+#   i path degli allegati sono salvati relativi alla project root.
+#
+# - SERVER_NAME ":80": il TLS lo termina il gateway Lazycat davanti, quindi
+#   Caddy dentro il container serve HTTP in chiaro e non prova a prendersi un
+#   certificato per un nome che non controlla.
+#
+# - MERCURE_UPSTREAM: il Caddyfile dell'immagine inoltra /.well-known/mercure*
+#   all'host `mercure`, che nel compose upstream e' un alias di rete del
+#   worker. Gli alias di rete qui non ci sono: si punta al nome lzcapp del
+#   worker, che e' il container che esegue l'hub (su :80, vedi
+#   BackgroundProcesses::HUB).
+#
+# - immagine pinnata a DIGEST, non a tag di versione: upstream pubblica su
+#   ghcr solo `latest`, `main` e `sha-<commit>` — un `:v0.3.6` non esiste e il
+#   pull fallisce con "manifest unknown". Il digest qui sotto e' `latest` al
+#   20/10/2026, cioe' APP_VERSION v0.3.6 (commit aba0130). Per aggiornare:
+#   leggere il digest corrente del tag e bumpare la version di package.yml.
+
+application:
+  routes:
+    - /=http://php.cloud.lazycat.app.plmail.lzcapp:80
+  subdomain: plmail
+
+services:
+  database:
+    image: docker.io/library/postgres:18-alpine
+    binds:
+      - /lzcapp/var/postgres:/var/lib/postgresql
+    environment:
+      - POSTGRES_DB=app
+      - POSTGRES_USER=app
+      - POSTGRES_PASSWORD=plmail_db_hpQ2vRt7Lc4XnW8s
+    healthcheck:
+      test: ["CMD", "pg_isready", "-d", "app", "-U", "app"]
+      interval: 10s
+      timeout: 5s
+      retries: 30
+      start_period: 60s
+
+  php:
+    image: ghcr.io/karatektus/pl_mail@sha256:9580a62d11c1ee0d4dbac49a7481e9b20b25a4e914ef363a2e6ffad20e41dd35
+    depends_on:
+      - database
+    binds:
+      - /lzcapp/var/data:/app/var/data
+    environment:
+      - APP_ENV=prod
+      - APP_CONTAINER_NAME=web
+      - SERVER_NAME=:80
+      - APP_STORAGE_DIR=var/data
+      - APP_SECRETS_DIR=/app/var/data/secrets
+      - APP_SECRETS_FILE=var/data/secrets/generated.env
+      - APP_PUBLIC_URL=https://plmail.chronos.heiyu.space
+      - APP_DEFAULT_TIMEZONE=Europe/Rome
+      - DATABASE_URL=postgresql://app:plmail_db_hpQ2vRt7Lc4XnW8s@database.cloud.lazycat.app.plmail.lzcapp:5432/app?serverVersion=18&charset=utf8
+      - MESSENGER_TRANSPORT_DSN=doctrine://default?auto_setup=0
+      - MERCURE_URL=http://worker.cloud.lazycat.app.plmail.lzcapp/.well-known/mercure
+      - MERCURE_UPSTREAM=worker.cloud.lazycat.app.plmail.lzcapp:80
+      - MAILER_DSN=null://null
+    mem_limit: 3g
+
+  worker:
+    image: ghcr.io/karatektus/pl_mail@sha256:9580a62d11c1ee0d4dbac49a7481e9b20b25a4e914ef363a2e6ffad20e41dd35
+    command: php bin/console app:work
+    depends_on:
+      - database
+    binds:
+      - /lzcapp/var/data:/app/var/data
+      - /lzcapp/var/mercure:/data
+    environment:
+      - APP_ENV=prod
+      - APP_CONTAINER_NAME=worker
+      - APP_STORAGE_DIR=var/data
+      - APP_SECRETS_DIR=/app/var/data/secrets
+      - APP_SECRETS_FILE=var/data/secrets/generated.env
+      - APP_PUBLIC_URL=https://plmail.chronos.heiyu.space
+      - APP_DEFAULT_TIMEZONE=Europe/Rome
+      - DATABASE_URL=postgresql://app:plmail_db_hpQ2vRt7Lc4XnW8s@database.cloud.lazycat.app.plmail.lzcapp:5432/app?serverVersion=18&charset=utf8
+      - MESSENGER_TRANSPORT_DSN=doctrine://default?auto_setup=0
+      - MERCURE_URL=http://worker.cloud.lazycat.app.plmail.lzcapp/.well-known/mercure
+      - MAILER_DSN=null://null
+    healthcheck:
+      disable: true
+    mem_limit: 3g
