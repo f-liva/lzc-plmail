@@ -1,5 +1,5 @@
 package: cloud.lazycat.app.plmail
-version: 1.0.1
+version: 1.0.2
 name: plMail
 description: "Self-hosted mail client with calendar: IMAP, Gmail and Outlook in one inbox"
 author: Federico Liva

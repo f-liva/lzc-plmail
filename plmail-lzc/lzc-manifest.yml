@@ -20,9 +20,15 @@
 #   ⚠️ APP_STORAGE_DIR non si cambia su un'installazione che ha gia' posta:
 #   i path degli allegati sono salvati relativi alla project root.
 #
-# - SERVER_NAME ":80": il TLS lo termina il gateway Lazycat davanti, quindi
-#   Caddy dentro il container serve HTTP in chiaro e non prova a prendersi un
+# - SERVER_NAME ":80": il TLS lo termina il proxy davanti (gateway Lazycat su
+#   plmail.chronos.heiyu.space, Cloudflare sul dominio pubblico), quindi Caddy
+#   dentro il container serve HTTP in chiaro e non prova a prendersi un
 #   certificato per un nome che non controlla.
+#
+# - APP_PUBLIC_URL punta al dominio PUBBLICO plmail.federicoliva.it (tunnel
+#   Cloudflare, dietro Access): e' l'host che finisce nei link assoluti delle
+#   notifiche push, e plmail.chronos.heiyu.space non risolve fuori casa.
+#   L'app risponde su entrambi gli hostname; cambia solo cosa scrive nei link.
 #
 # - MERCURE_UPSTREAM: il Caddyfile dell'immagine inoltra /.well-known/mercure*
 #   all'host `mercure`, che nel compose upstream e' un alias di rete del
@@ -70,7 +76,7 @@ services:
       - APP_STORAGE_DIR=var/data
       - APP_SECRETS_DIR=/app/var/data/secrets
       - APP_SECRETS_FILE=var/data/secrets/generated.env
-      - APP_PUBLIC_URL=https://plmail.chronos.heiyu.space
+      - APP_PUBLIC_URL=https://plmail.federicoliva.it
       - APP_DEFAULT_TIMEZONE=Europe/Rome
       - DATABASE_URL=postgresql://app:plmail_db_hpQ2vRt7Lc4XnW8s@database.cloud.lazycat.app.plmail.lzcapp:5432/app?serverVersion=18&charset=utf8
       - MESSENGER_TRANSPORT_DSN=doctrine://default?auto_setup=0
@@ -93,7 +99,7 @@ services:
       - APP_STORAGE_DIR=var/data
       - APP_SECRETS_DIR=/app/var/data/secrets
       - APP_SECRETS_FILE=var/data/secrets/generated.env
-      - APP_PUBLIC_URL=https://plmail.chronos.heiyu.space
+      - APP_PUBLIC_URL=https://plmail.federicoliva.it
       - APP_DEFAULT_TIMEZONE=Europe/Rome
       - DATABASE_URL=postgresql://app:plmail_db_hpQ2vRt7Lc4XnW8s@database.cloud.lazycat.app.plmail.lzcapp:5432/app?serverVersion=18&charset=utf8
       - MESSENGER_TRANSPORT_DSN=doctrine://default?auto_setup=0

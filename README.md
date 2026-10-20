@@ -10,18 +10,26 @@ già (IMAP, Gmail, Outlook), le sincronizza in un Postgres tuo e le mostra in
 un'unica inbox, con un calendario accanto. Non riceve posta da internet e non
 ospita domini, quindi niente porta 25 da aprire.
 
-- URL: <https://plmail.chronos.heiyu.space>
+- URL pubblico: <https://plmail.federicoliva.it> (tunnel Cloudflare + Access)
+- URL interno: <https://plmail.chronos.heiyu.space> (gateway Lazycat)
 - Package: `cloud.lazycat.app.plmail`
 
 ## Architettura
 
 ```
-browser ──> gateway Lazycat (TLS + login microserver)
-              │
-              └─> php (FrankenPHP :80, Caddy in chiaro)
-                    ├── /.well-known/mercure* ──> worker (hub Mercure :80)
-                    └── Postgres ──────────────> database
+                 ┌─ Cloudflare Access ─┐
+browser ──┬─────>│ plmail.federicoliva.it  (tunnel, policy: 2 email)
+          └─────>│ plmail.chronos.heiyu.space (gateway Lazycat, login microserver)
+                 └──────────┬──────────┘
+                            │
+                            └─> php (FrankenPHP :80, Caddy in chiaro)
+                                  ├── /.well-known/mercure* ──> worker (hub Mercure :80)
+                                  └── Postgres ──────────────> database
 ```
+
+L'app risponde su entrambi gli hostname. `APP_PUBLIC_URL` punta a quello
+pubblico, perché è l'host che finisce nei link assoluti delle notifiche push e
+`plmail.chronos.heiyu.space` non risolve fuori casa.
 
 Tre service, tutti e tre con l'immagine upstream pinnata a digest:
 
@@ -49,9 +57,10 @@ due condividono.
 segreti sotto `/lzcapp/var/data`. Una cosa sola da backuppare, e i due service
 che vedono dimostrabilmente la stessa chiave di cifratura.
 
-**`SERVER_NAME=:80`.** Il TLS lo termina il gateway Lazycat davanti, quindi
-Caddy dentro il container serve HTTP in chiaro e non prova a ottenere un
-certificato per un nome che non controlla.
+**`SERVER_NAME=:80`.** Il TLS lo termina il proxy davanti — il gateway Lazycat
+sul dominio interno, Cloudflare su quello pubblico — quindi Caddy dentro il
+container serve HTTP in chiaro e non prova a ottenere un certificato per un
+nome che non controlla.
 
 **`MERCURE_UPSTREAM`.** Il Caddyfile dell'immagine inoltra
 `/.well-known/mercure*` all'host `mercure`, che nel compose upstream è un alias
