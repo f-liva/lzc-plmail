@@ -41,6 +41,22 @@
 #   pull fallisce con "manifest unknown". Il digest qui sotto e' `latest` al
 #   20/10/2026, cioe' APP_VERSION v0.3.6 (commit aba0130). Per aggiornare:
 #   leggere il digest corrente del tag e bumpare la version di package.yml.
+#
+# - NIENTE restart policy, e non per scelta: l'orchestrator scarta
+#   `services.*.restart` (il lint di build lo segnala come campo ignoto e il
+#   docker-compose.yml generato non lo contiene; verificato il 20/10/2026
+#   installando 1.0.3 con quel campo — policy effettiva ancora `no`).
+#   Conta perche' plMail si termina da solo: WebProcessRestart manda SIGTERM a
+#   PID 1 per far ripartire il web process con la chiave di cifratura appena
+#   generata (src/Service/Monitoring/WebProcessRestart.php). Lo fanno /install,
+#   il reset dei dati e le azioni di sistema dell'admin. Upstream da' per
+#   scontato un orchestrator che lo tiri su di nuovo; qui php esce con 0 e
+#   resta giu'.
+#   Sintomo nel browser: "That didn't work - something went wrong on our side"
+#   DOPO che l'operazione e' andata a buon fine (il POST risponde 200, poi il
+#   backend non c'e' piu'). Recupero, dal NAS:
+#       lzc-docker start cloudlazycatappplmail-php-1
+#   Al boot del microserver ci pensa pkgm, che ricrea i container.
 
 application:
   routes:

@@ -137,3 +137,29 @@ lzc-docker exec cloudlazycatappplmail-php-1 \
 
 Wrapper MIT. plMail è AGPL-3.0, di
 [karatektus](https://github.com/karatektus/pl_mail).
+
+## Gotcha: plMail si termina da solo, e Lazycat non lo riavvia
+
+`/install`, il reset dei dati e le azioni di sistema dell'admin finiscono
+chiamando `WebProcessRestart`, che manda `SIGTERM` a PID 1 per far ripartire il
+web process con la chiave di cifratura appena generata
+(`src/Service/Monitoring/WebProcessRestart.php`). Upstream da' per scontato un
+orchestrator che lo tiri su di nuovo.
+
+L'orchestrator Lazycat **scarta** `services.*.restart`: il lint di build lo
+segnala come campo ignoto, e il `docker-compose.yml` generato non lo contiene.
+Provato il 20/10/2026 con la 1.0.3 — policy effettiva ancora `no`. Quindi php
+esce con 0 e resta giu'.
+
+Nel browser il sintomo e' *"That didn't work — something went wrong on our
+side"* **dopo** che l'operazione e' riuscita: il POST risponde 200, poi il
+backend non c'e' piu'. Il primo amministratore nel nostro caso era stato creato
+regolarmente.
+
+Recupero, dal NAS:
+
+```bash
+lzc-docker start cloudlazycatappplmail-php-1
+```
+
+Al boot del microserver ci pensa `pkgm`, che ricrea i container.
